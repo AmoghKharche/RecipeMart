@@ -1,9 +1,12 @@
 """Download Instagram Reel via yt-dlp and extract caption from metadata."""
+import base64
 import json
 import re
 import subprocess
 from pathlib import Path
 from typing import Tuple
+
+import config
 
 
 # Match Instagram Reel URLs
@@ -16,6 +19,64 @@ REEL_URL_PATTERN = re.compile(
 def is_reel_url(text: str) -> bool:
     """Return True if text looks like an Instagram Reel URL."""
     return bool(REEL_URL_PATTERN.search(text))
+
+
+def _get_cookies_path(out_dir: Path) -> Path | None:
+    """
+    Resolve Instagram cookies: env can be a file path or base64-encoded content.
+    Returns path to a cookies file, or None if not configured.
+    """
+    raw = config.INSTAGRAM_COOKIES
+    if not raw:
+        return None
+    # Path: non-empty string without newlines that points to an existing file
+    if "\n" not in raw and Path(raw).exists():
+        return Path(raw)
+    # Base64-encoded cookies file content (for Railway / env vars)
+    try:
+        decoded = base64.b64decode(raw, validate=True).decode("utf-8", errors="replace")
+        cookies_file = out_dir / "cookies.txt"
+        cookies_file.write_text(decoded, encoding="utf-8")
+        return cookies_file
+    except Exception:
+        return None
+
+
+def fetch_caption_only(url: str, out_dir: Path) -> str:
+    """
+    Fetch only metadata (caption) without downloading the video. Uses yt-dlp --skip-download.
+    Returns caption string. Raises RuntimeError if yt-dlp fails (e.g. login required).
+    """
+    out_dir = Path(out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    output_template = str(out_dir / "video.%(ext)s")
+    metadata_path = out_dir / "video.info.json"
+    cmd = [
+        "yt-dlp",
+        "--no-playlist",
+        "--skip-download",
+        "-o",
+        output_template,
+        "--write-info-json",
+        "--no-warnings",
+        "--quiet",
+        url,
+    ]
+    cookies_path = _get_cookies_path(out_dir)
+    if cookies_path:
+        cmd.extend(["--cookies", str(cookies_path)])
+    result = subprocess.run(
+        cmd,
+        capture_output=True,
+        text=True,
+        timeout=60,
+        cwd=str(out_dir),
+    )
+    if result.returncode != 0:
+        raise RuntimeError(
+            f"yt-dlp failed: {result.stderr or result.stdout or 'unknown error'}"
+        )
+    return _extract_caption(out_dir, metadata_path)
 
 
 def download_reel(url: str, out_dir: Path) -> Tuple[Path, str]:
@@ -40,6 +101,10 @@ def download_reel(url: str, out_dir: Path) -> Tuple[Path, str]:
         "--quiet",
         url,
     ]
+    # Instagram often requires cookies to avoid "requested content not available / login required"
+    cookies_path = _get_cookies_path(out_dir)
+    if cookies_path:
+        cmd.extend(["--cookies", str(cookies_path)])
     result = subprocess.run(
         cmd,
         capture_output=True,

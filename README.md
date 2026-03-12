@@ -62,6 +62,7 @@ The bot uses long-polling. Send any message that contains an Instagram Reel URL;
 
 ## Optional env vars
 
+- `INSTAGRAM_COOKIES` – if you get "requested content not available or login required" from Instagram, provide cookies. **Local:** set to the path of a Netscape-format cookies file (e.g. export with a browser extension). **Railway/cloud:** export cookies to `cookies.txt`, run `base64 -i cookies.txt` (or `base64 cookies.txt` on Linux), and set `INSTAGRAM_COOKIES` to that base64 string in your project variables.
 - `OPENAI_RECIPE_MODEL` – model for recipe extraction (default `gpt-4o-mini`)
 - `STT_MAX_DURATION_SECONDS` – cap audio length for Whisper (default 600)
 - `OCR_FRAME_INTERVAL_SECONDS` – seconds between sampled frames (default 2)

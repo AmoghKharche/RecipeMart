@@ -13,6 +13,11 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 # OpenAI model for recipe extraction (gpt-4o-mini is fast and cheap)
 OPENAI_RECIPE_MODEL = os.getenv("OPENAI_RECIPE_MODEL", "gpt-4o-mini")
 
+# Optional: Instagram cookies to avoid "login required" / rate-limit. Use either:
+# - Path to a Netscape-format cookies file (local dev), or
+# - Base64-encoded cookies file content (e.g. for Railway: base64 -i cookies.txt, then paste)
+INSTAGRAM_COOKIES = os.getenv("INSTAGRAM_COOKIES", "").strip()
+
 # Temp directory for downloads (per-job subdirs created inside)
 _base_temp = os.getenv("TMPDIR", "/tmp")
 TEMP_DIR = Path(_base_temp) / "recipemart"

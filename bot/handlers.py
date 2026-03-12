@@ -36,7 +36,15 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         return
     await update.message.reply_text("Processing your reel…")
     try:
-        recipe = await asyncio.to_thread(run_pipeline, url)
+        recipe, used_caption_only = await asyncio.to_thread(run_pipeline, url)
+        if used_caption_only:
+            await update.message.reply_text(
+                "Video download skipped; recipe extracted from caption."
+            )
+        else:
+            await update.message.reply_text(
+                "Video was downloaded for processing and then deleted."
+            )
         formatted = format_recipe_for_telegram(recipe)
         parts = split_message_safe(formatted, max_len=4000)
         if not parts:
