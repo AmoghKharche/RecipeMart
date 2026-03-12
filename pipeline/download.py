@@ -21,6 +21,10 @@ def is_reel_url(text: str) -> bool:
     return bool(REEL_URL_PATTERN.search(text))
 
 
+# Max length for INSTAGRAM_COOKIES to be treated as a file path (avoids ENAMETOOLONG on Linux)
+_MAX_COOKIE_PATH_LEN = 512
+
+
 def _get_cookies_path(out_dir: Path) -> Path | None:
     """
     Resolve Instagram cookies: env can be a file path or base64-encoded content.
@@ -29,8 +33,8 @@ def _get_cookies_path(out_dir: Path) -> Path | None:
     raw = config.INSTAGRAM_COOKIES
     if not raw:
         return None
-    # Path: non-empty string without newlines that points to an existing file
-    if "\n" not in raw and Path(raw).exists():
+    # Path: short string without newlines that points to an existing file (long strings are base64)
+    if "\n" not in raw and len(raw) <= _MAX_COOKIE_PATH_LEN and Path(raw).exists():
         return Path(raw)
     # Base64-encoded cookies file content (for Railway / env vars)
     try:
