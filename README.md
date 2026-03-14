@@ -1,9 +1,11 @@
 # RecipeMart
 
-Telegram bot that turns an Instagram Reel URL into a structured recipe: it downloads the reel, extracts text from audio (speech-to-text) and on-screen text (OCR) in parallel, merges with the caption, then uses OpenAI to produce **ingredients in grams/ml** and step-by-step instructions.
+Telegram bot that turns an Instagram Reel URL into a structured recipe. It **tries the caption first** (no video download); if the caption has enough info, it returns a recipe and tells you the video was skipped. Otherwise it downloads the reel, extracts text from audio (speech-to-text) and on-screen text (OCR) in parallel, merges with the caption, then uses OpenAI to produce **ingredients in grams/ml** and step-by-step instructions.
 
 ## Features
 
+- **Caption-first** – Fetches caption only (no video download). If the caption contains a full recipe, the bot extracts it and replies with "Video download skipped; recipe extracted from caption." Saves time and bandwidth when creators put the recipe in the caption.
+- **Full pipeline when needed** – If the caption isn't enough, the bot downloads the video, runs Whisper (STT) and OCR in parallel, then extracts the recipe and tells you "Video was downloaded for processing and then deleted."
 - **Standardized ingredients** – All quantities in metric: grams (g) for solids, milliliters (ml) for liquids. Converts from cups, tbsp, “pieces”, etc. automatically.
 - **Fast pipeline** – Speech-to-text and OCR run in parallel after download to reduce wait time.
 - **Clean output** – Bold section headers and bullet lists in Telegram.
@@ -11,8 +13,10 @@ Telegram bot that turns an Instagram Reel URL into a structured recipe: it downl
 ## Flow
 
 1. Send an Instagram Reel URL to the bot (e.g. `https://www.instagram.com/reel/...`).
-2. Bot replies "Processing your reel…", then runs: download → (Whisper STT ∥ OCR) → merge → GPT recipe extraction.
-3. Bot sends back the recipe (ingredients in g/ml, steps). Temp files are deleted after each run.
+2. Bot replies "Processing your reel…", then:
+   - **Caption path:** Fetches metadata (caption only). If the caption is enough, extracts the recipe and replies with "Video download skipped; recipe extracted from caption." and the recipe.
+   - **Video path:** If not, downloads the reel → runs Whisper (STT) and OCR in parallel → merges transcript, on-screen text, and caption → GPT recipe extraction → replies with "Video was downloaded for processing and then deleted." and the recipe.
+3. Temp files (and any downloaded video) are deleted after each run.
 
 ## Requirements
 
@@ -47,22 +51,23 @@ From the project root (RecipeMart):
 python -m bot.main
 ```
 
-The bot uses long-polling. Send any message that contains an Instagram Reel URL; the bot will reply with "Processing your reel…" and then the extracted recipe (or an error message).
+The bot uses long-polling. Send any message that contains an Instagram Reel URL; the bot will reply with "Processing your reel…", then a short status line (caption-only vs video downloaded), then the extracted recipe (or an error message).
 
 ## Project layout
 
 - `config.py` – env vars, `TEMP_DIR`, pipeline limits
 - `bot/main.py` – Telegram app and polling
-- `bot/handlers.py` – message handler: detect Reel URL, run pipeline, send recipe
-- `pipeline/run.py` – orchestration and cleanup
-- `pipeline/download.py` – yt-dlp download + caption
+- `bot/handlers.py` – message handler: detect Reel URL, run pipeline, send status + recipe
+- `bot/formatting.py` – format recipe as Telegram HTML, split long messages
+- `pipeline/run.py` – caption-first then full pipeline; returns (recipe, used_caption_only)
+- `pipeline/download.py` – `fetch_caption_only` (metadata only) and `download_reel` (video + caption)
 - `pipeline/speech_to_text.py` – Whisper API
 - `pipeline/ocr.py` – OpenCV + Tesseract
-- `pipeline/recipe_ai.py` – OpenAI recipe extraction
+- `pipeline/recipe_ai.py` – OpenAI recipe extraction (ingredients in g/ml)
 
 ## Optional env vars
 
-- `INSTAGRAM_COOKIES` – if you get "requested content not available or login required" from Instagram, provide cookies. **Local:** set to the path of a Netscape-format cookies file (e.g. export with a browser extension). **Railway/cloud:** export cookies to `cookies.txt`, run `base64 -i cookies.txt` (or `base64 cookies.txt` on Linux), and set `INSTAGRAM_COOKIES` to that base64 string in your project variables.
+- `INSTAGRAM_COOKIES` – if you get "requested content not available or login required" from Instagram, provide cookies. **Local:** set to the path of a Netscape-format cookies file (e.g. export with a browser extension), e.g. `INSTAGRAM_COOKIES=/path/to/cookies.txt`. **Railway/cloud:** use the **base64-encoded** cookies content: export cookies to `cookies.txt`, run `base64 -i cookies.txt` (macOS) or `base64 cookies.txt` (Linux), and paste the single line into `INSTAGRAM_COOKIES` in your project variables (do not use a file path in cloud envs; long paths can cause errors).
 - `OPENAI_RECIPE_MODEL` – model for recipe extraction (default `gpt-4o-mini`)
 - `STT_MAX_DURATION_SECONDS` – cap audio length for Whisper (default 600)
 - `OCR_FRAME_INTERVAL_SECONDS` – seconds between sampled frames (default 2)
