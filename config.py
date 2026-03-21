@@ -12,6 +12,8 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 
 # OpenAI model for recipe extraction (gpt-4o-mini is fast and cheap)
 OPENAI_RECIPE_MODEL = os.getenv("OPENAI_RECIPE_MODEL", "gpt-4o-mini")
+# Optional: model for macro estimation (defaults to OPENAI_RECIPE_MODEL)
+OPENAI_MACROS_MODEL = os.getenv("OPENAI_MACROS_MODEL", "").strip()
 
 # Optional: Instagram cookies to avoid "login required" / rate-limit. Use either:
 # - Path to a Netscape-format cookies file (local dev), or

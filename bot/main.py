@@ -1,9 +1,10 @@
 """Run the RecipeMart Telegram bot (long-polling)."""
 import logging
 
-from telegram.ext import Application, MessageHandler, filters
+from telegram.ext import Application, CommandHandler, MessageHandler, filters
 
 import config
+from bot.commands import cmd_help, cmd_macros, cmd_scale
 from bot.handlers import handle_message
 
 logging.basicConfig(
@@ -18,6 +19,10 @@ def main() -> None:
         logger.error("TELEGRAM_BOT_TOKEN is not set. Copy .env.example to .env and set the token.")
         return
     app = Application.builder().token(config.TELEGRAM_BOT_TOKEN).build()
+    app.add_handler(CommandHandler("help", cmd_help))
+    app.add_handler(CommandHandler("start", cmd_help))
+    app.add_handler(CommandHandler("scale", cmd_scale))
+    app.add_handler(CommandHandler("macros", cmd_macros))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     logger.info("Bot starting (long-polling)...")
     app.run_polling(allowed_updates=["message"])

@@ -1,6 +1,61 @@
 """Format recipe text for Telegram (HTML). Only text is sent — no video or media."""
 
+from __future__ import annotations
+
 import re
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from pipeline.recipe_schema import Recipe
+
+
+def _fmt_quantity(amount: float) -> str:
+    """Format scaled amount for display (compact, kitchen-friendly)."""
+    rounded = round(amount, 2)
+    if abs(rounded - round(rounded)) < 1e-9:
+        return str(int(round(rounded)))
+    s = f"{rounded:.2f}".rstrip("0").rstrip(".")
+    return s
+
+
+def format_structured_recipe(
+    recipe: Recipe,
+    scale_factor: float = 1.0,
+    *,
+    preamble: str | None = None,
+) -> str:
+    """
+    Build markdown-style recipe text from structured data; optional scale on numeric amounts.
+    Pass through format_recipe_for_telegram for HTML.
+    """
+    lines: list[str] = []
+    if preamble:
+        lines.append(preamble)
+        lines.append("")
+    title = (recipe.title or "Recipe").strip() or "Recipe"
+    lines.append(f"**{title}**")
+    lines.append("")
+    lines.append("**Ingredients**")
+    for ing in recipe.ingredients:
+        if ing.amount is not None and ing.unit:
+            scaled = ing.amount * scale_factor
+            qty = _fmt_quantity(scaled)
+            unit = ing.unit
+            if unit in ("g", "ml"):
+                line = f"• {qty}{unit} {ing.name}"
+            else:
+                line = f"• {qty} {ing.name}"
+            if ing.note:
+                line += f" ({ing.note})"
+            lines.append(line)
+        else:
+            extra = f" ({ing.note})" if ing.note else ""
+            lines.append(f"• {ing.name}{extra}")
+    lines.append("")
+    lines.append("**Steps**")
+    for i, step in enumerate(recipe.steps, start=1):
+        lines.append(f"{i}. {step}")
+    return "\n".join(lines)
 
 
 def _escape_html(s: str) -> str:
